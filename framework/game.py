@@ -1,5 +1,3 @@
-import logging
-
 from foundation.app import Application
 from foundation.data import Config, String
 from foundation.addr import Uri
