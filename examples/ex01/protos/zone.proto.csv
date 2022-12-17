@@ -1,0 +1,12 @@
+﻿num,name,$name[ko],$tag,asset,# 필드 이름
+int:pk,str:hash,str:utf8:l10n,str:utf8:,uri,# 필드 타입
+#번호,이름(해쉬),이름(한국어),태그,애셋,# 주석
+1,ZONE_PLAIN,평원,PROTOTYPE,,
+2,ZONE_GRASS,초원,ALPHA,,
+3,ZONE_CANYON,협곡,ALPHA,,
+4,ZONE_DESERT,사막,BETA,,
+5,ZONE_COAST,해안,BETA,,
+6,ZONE_OCCEAN,바다,BETA,,
+7,ZONE_FIRE,용암,GAMMA,,
+8,ZONE_ICE,얼음,GAMMA,,
+9,ZONE_SKY,하늘,GAMMA,,
