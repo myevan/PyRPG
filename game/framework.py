@@ -1,5 +1,3 @@
-import os
-
 from core.foundation import Application, Uri
 
 from game.configs import GameConfig
