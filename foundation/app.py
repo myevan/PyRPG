@@ -13,7 +13,7 @@ class StructuredLogger(logging.Logger):
 class Application:
     logger = logging.getLogger(TAG)
 
-    def __init__(self, logging_level=logging.DEBUG):
+    def __init__(self, logging_level=logging.INFO):
         logging_format = "%(asctime)s\t%(levelname)s\t%(name)s\t%(message)s %(context)s"
         logging.basicConfig(level=logging_level, format=logging_format)
         for func in [
