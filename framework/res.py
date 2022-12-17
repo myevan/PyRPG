@@ -3,8 +3,6 @@ import yaml
 
 from foundation.data import Config
 
-CFG = 'cfg'
-
 class YamlConfigFileParser(Config.Parser):
     logger = logging.getLogger('cfg')
 
