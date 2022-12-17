@@ -2,8 +2,6 @@ import logging
 import inspect
 import sys
 
-TAG = 'app'
-
 class StructuredLogger(logging.Logger):
     @classmethod
     def wrap(cls, func, key):
@@ -11,7 +9,7 @@ class StructuredLogger(logging.Logger):
         setattr(logging.Logger, func.__name__, wrapped_func)
 
 class Application:
-    logger = logging.getLogger(TAG)
+    logger = logging.getLogger('app')
 
     def __init__(self, logging_level=logging.INFO):
         logging_format = "%(asctime)s\t%(levelname)s\t%(name)s\t%(message)s %(context)s"
