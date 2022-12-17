@@ -1,3 +1,6 @@
+import sys
+import logging
+
 from foundation.app import Application
 from foundation.data import Config, String
 from foundation.addr import Uri
@@ -10,9 +13,6 @@ class GameConfig(Config):
     revision = String(default="0")
 
 class GameApplication(Application):
-    def _on_init(self):
-        pass
-
     def add_config_dir_path(self, config_dir_path):
         Uri.add('cfg', config_dir_path)
 

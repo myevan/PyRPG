@@ -1,5 +1,4 @@
 import logging
-import inspect
 import sys
 
 class StructuredLogger(logging.Logger):
@@ -11,9 +10,16 @@ class StructuredLogger(logging.Logger):
 class Application:
     logger = logging.getLogger('app')
 
-    def __init__(self, logging_level=logging.INFO):
+    def __init__(self, logging_level=None):
         logging_format = "%(asctime)s\t%(levelname)s\t%(name)s\t%(message)s %(context)s"
-        logging.basicConfig(level=logging_level, format=logging_format)
+        if logging_level:
+            logging.basicConfig(level=logging_level, format=logging_format)
+        else:
+            if '--debug' in sys.argv:
+                logging.basicConfig(level=logging.DEBUG, format=logging_format)
+            else:
+                logging.basicConfig(level=logging.INFO, format=logging_format)
+
         for func in [
             logging.Logger.critical, 
             logging.Logger.error,
@@ -36,11 +42,11 @@ class Application:
         sys.exit(code if code else 0)
 
     def _on_init(self):
-        self.logger.debug('not_implemented: on_init')
+        pass
 
     def _on_run(self):
-        self.logger.debug('not_implemented: on_run')
+        pass
 
     def _on_exit(self):
-        self.logger.debug('not_implemented: on_exit')
+        pass
 
