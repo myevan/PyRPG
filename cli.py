@@ -7,7 +7,7 @@ import logging
 def cli(ctx, debug):
     ctx.ensure_object(dict)
 
-    from core.app import Application
+    from core import Application
     app = Application(logging_level=logging.DEBUG if debug else logging.INFO)
     ctx.obj['APP'] = app
 

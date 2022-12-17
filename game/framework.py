@@ -1,6 +1,6 @@
 import os
 
-from core.app import Application, Uri
+from core.foundation import Application, Uri
 
 from game.configs import GameConfig
 from game.plugins.plugin_PyYAML import YamlConfigFileParser
