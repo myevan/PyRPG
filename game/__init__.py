@@ -1,5 +1,5 @@
-from .app import GameApplication
+from .framework import GameApplication
 
 if __name__ == '__main__':
-    app = GameApplication()
-    app.run()
+    framework = GameApplication()
+    framework.run()

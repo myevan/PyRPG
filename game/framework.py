@@ -2,7 +2,7 @@ import os
 
 from core.app import Application, Uri
 
-from game.cfg import GameConfig
+from game.configs import GameConfig
 from game.plugins.plugin_PyYAML import YamlConfigFileParser
 
 class GameApplication(Application):
