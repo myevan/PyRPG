@@ -1,0 +1,1 @@
+vpython.bat cli.py %*

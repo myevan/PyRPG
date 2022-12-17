@@ -1,7 +1,7 @@
 import logging
 import yaml
 
-from foundation.data import Config
+from core.data import Config
 
 class YamlConfigFileParser(Config.Parser):
     logger = logging.getLogger('cfg')

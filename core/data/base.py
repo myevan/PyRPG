@@ -1,20 +1,20 @@
 import inspect
 
-class FieldError(Exception):
-    def __init__(self, name, value, memo):
-        super(FieldError, self).__init__(name)
-        self.__value = value
-        self.__memo = memo
-
-    @property
-    def value(self):
-        return self.__value
-
-    @property
-    def memo(self):
-        return self.__memo
-
 class Field:
+    class Error(Exception):
+        def __init__(self, name, value, memo):
+            super(Field.Error, self).__init__(name)
+            self.__value = value
+            self.__memo = memo
+
+        @property
+        def value(self):
+            return self.__value
+
+        @property
+        def memo(self):
+            return self.__memo
+
     __seq = 0
 
     @classmethod
@@ -154,97 +154,3 @@ class Model(metaclass=DeclMeta):
             return getattr(self, pk_names[0])
         else:
             return tuple(getattr(self, name) for name in pk_names)
-
-class Config(Model):
-    class Parser:
-        def deserialize(self):
-            return dict()
-
-    _inst = None
-    _parsers = []
-
-    @classmethod
-    def get(cls):
-        if not cls._inst:
-            cls._inst = cls()
-
-        return cls._inst
-
-    @classmethod
-    def add(cls, parser):
-        cls._parsers.append(parser)
-
-    @classmethod
-    def load(cls):
-        inst = cls.get()
-        for parser in cls._parsers:
-            data = parser.deserialize()
-            assert(type(data) is dict)
-            inst.set(data)
-
-    def set(self, in_dict):
-        total_field_names = self.get_field_names()
-        total_field_types = self.get_field_types()
-        for field_type, field_name in zip(total_field_types, total_field_names):
-            org_val = in_dict[field_name]
-            cnv_val = field_type.convert(org_val)
-            setattr(self, field_name, cnv_val)
-
-class Integer(Field):
-    def __init__(self, *args, **kwargs):
-        super(Integer, self).__init__('i', 0, *args, **kwargs)
-        self.min = -0x800000000000000
-        self.max = +0x7FFFFFFFFFFFFFF
-
-    def convert(self, value):
-        ret_value = int(value)
-        if ret_value < self.min: raise FieldError('UNDERFLOW', ret_value, f"< {self.min}")
-        if ret_value > self.max: raise FieldError('OVERFLOW', ret_value, f"> {self.max}")
-        return ret_value
-
-class Float(Field):
-    def __init__(self, *args, **kwargs):
-        super(Float, self).__init__('f', 0.0, *args, **kwargs)
-
-    def convert(self, value):
-        return float(value)
-    
-class String(Field):
-    def __init__(self, *args, **kwargs):
-        super(String, self).__init__('s', "", *args, **kwargs)
-
-    def convert(self, value):
-        return str(value)
-
-class Enum(Field):
-    def __init__(self, map, *args, **kwargs):
-        super(Enum, self).__init__('e', 0, *args, **kwargs)
-        self.map = map
-
-    def convert(self, value):
-        ret_value = getattr(self.map, value, None)
-        if ret_value is None: raise FieldError('UNKNOWN', ret_value, f"not in {self.mappings}")
-        return ret_value
-
-class Position(Field):
-    def __init__(self, *args, **kwargs):
-        super(Position, self).__init__('p', (0, 0, 0), *args, **kwargs)
-
-class Rotation(Field):
-    def __init__(self, *args, **kwargs):
-        super(Rotation, self).__init__('d', 0, *args, **kwargs) # 0: x+
-
-if __name__ == '__main__':
-    class User(Model):
-        id = Integer(pk=True)
-        name = String()
-
-    class Profile(Model):
-        id = Integer(pk=True)
-        user_id = Integer(fk=User.id)
-
-    print(User.id)
-    user = User(id=1, name="a")
-    print(user)
-    print(Profile.user_id.foreign_key)
-

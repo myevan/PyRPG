@@ -2,8 +2,6 @@ import logging
 import gspread
 import os
 
-from framework.env import EnvironConfig
-
 class Workbook:
     logger = logging.getLogger('gspread')
 
@@ -24,8 +22,8 @@ class Workbook:
             else:
                 raise ValueError('UNKNOWN_PATH', out)
         else:
-            env_cfg = EnvironConfig.get()
-            return os.path.join(env_cfg.CODE_PROJECT_DIR_PATH, f'{self.book.title}.{ext}')
+            current_working_dir_path = os.getcwd()
+            return os.path.join(current_working_dir_path, f'{self.book.title}.{ext}')
 
     def export_sheet(self, out_file_path, sheet_name=''):
         self.logger.debug('export', sheet=sheet_name, out=out_file_path)
