@@ -13,6 +13,12 @@ class GameConfig(Config):
 
 class GameApplication(Application):
     def _on_init(self):
+        pass
+
+    def add_config_dir_path(self, config_dir_path):
+        Uri.add(CFG, config_dir_path)
+
+    def _on_run(self):
         env_cfg = EnvironConfig.get()
         GameConfig.add(YamlConfigFileParser(Uri.get(CFG, 'game.cfg.yaml')))
         GameConfig.load()
