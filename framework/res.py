@@ -3,10 +3,10 @@ import yaml
 
 from foundation.data import Config
 
-TAG = 'cfg'
+CFG = 'cfg'
 
 class YamlConfigFileParser(Config.Parser):
-    logger = logging.getLogger(TAG)
+    logger = logging.getLogger('cfg')
 
     def __init__(self, file_path):
         self.file_path = file_path

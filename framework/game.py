@@ -5,7 +5,7 @@ from foundation.addr import Uri
 from .env import EnvironConfig
 from .res import YamlConfigFileParser
 
-from .scheme import CFG
+from .res import CFG
 
 class GameConfig(Config):
     version = String(default="0.0.0")
