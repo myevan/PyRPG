@@ -181,13 +181,21 @@ class Table:
         def __str__(self):
             return f"{self.name}<ROW={self.row} COL={self.col} {self.memo}>"
 
+    @classmethod
+    def create(cls, rows: list):
+        rowi = iter(rows)
+        fld_names = next(rowi)
+        fld_types = next(rowi)
+        recs = list(rowi)
+        return cls(fld_names, fld_types, recs)
+
     def __init__(self, fld_names, fld_types, recs):
         self._fld_names = fld_names
         self._fld_types = fld_types
         self._recs = recs
 
     def __repr__(self):
-        head_line = ', '.join(repr(fld_name) for fld_name in self._fld_names)
+        head_line = ', '.join(fld_name for fld_name in self._fld_names)
         type_line = ', '.join(repr(fld_type) for fld_type in self._fld_types)
         body_lines = [
             ', '.join(repr(fld_value) for fld_value in record)
@@ -212,7 +220,7 @@ class Table:
 
 class PyTable(Table):
     @classmethod
-    def create(cls, rows: list):
+    def create(cls, org_table):
         def gen_field_types(row_idx, exprs: list):
             for col_idx, expr in enumerate(exprs):
                 try:
@@ -228,11 +236,10 @@ class PyTable(Table):
             for row_idx, fld_vals in enumerate(rowi):
                 yield list(gen_field_values(fld_types, fld_vals))
 
-        rowi = iter(rows)
-        fld_names = next(rowi)
-        fld_exprs = next(rowi)
+        fld_names = org_table.field_names
+        fld_exprs = org_table.field_types
         fld_types = list(gen_field_types(ROW_IDX_TYPES, fld_exprs))
-        recs = list(gen_records(fld_types, rowi))
+        recs = list(gen_records(fld_types, org_table.records))
         return cls(fld_names, fld_types, recs)
 
 
@@ -307,26 +314,25 @@ class CompactTable(Table):
         rowi = cls.gen_rows(org_table.field_names, org_table.field_types, org_table.records)
         heads = next(rowi)
         types = next(rowi)
-        return cls(heads, types, rowi)
+        recs = list(rowi)
+        return cls(heads, types, recs)
 
     @classmethod
-    def gen_rows(cls, field_names, field_types, records):
-        mos = [cls.RO_FIELD_NAME.match(name) for name in field_names]
+    def gen_rows(cls, fld_names, fld_types, records):
+        mos = [cls.RO_FIELD_NAME.match(name) for name in fld_names]
         idxs = [idx for idx, mo in enumerate(mos) if mo]
 
-        yield [field_names[idx] for idx in idxs]
-        yield [field_types[idx] for idx in idxs]
+        yield [fld_names[idx] for idx in idxs]
+        yield [fld_types[idx] for idx in idxs]
 
         for record in records:
             if not record: continue
-            if type(record[0]) is str:
-                if not record[0].strip(): continue # empty record
-                if record[0].startswith('#'): continue # comment record
+            if not record[0].strip(): continue # empty record
+            if record[0].startswith('#'): continue # comment record
 
             row = [record[idx] for idx in idxs]
-            if type(row[0]) is str:
-                if not row[0].strip(): continue # empty row
-                if row[0].startswith('#'): continue # comment row
+            if not row[0].strip(): continue # empty row
+            if row[0].startswith('#'): continue # comment row
 
             yield row
 
@@ -390,19 +396,29 @@ if __name__ == '__main__':
     print(date_type.dump(datetime.now()))
     print(time_type.dump(timedelta(hours=1, minutes=2, seconds=3)))
 
-    org_table = PyTable.create([
+    org_rows = [
         ["id",      "name",     "$name[src]",   "desc",     "$desc[src]"   "ave_score",     "#comment"],
         ["int:pk",  "str",      "str:utf8",     "str",      "str:utf8",    "real",          "str:utf8"],
         ["1",       "NAME_A",   "가 이름",      "DESC_A",   "가 설명",      7.2,            "주석1"],
         ["2",       "NAME_B",   "나 이름",      "DESC_B",   "나 설명",      8.5,            "주석2"],
-    ])
+    ]
+
+    org_table = Table.create(org_rows)
     print(repr(org_table))
+    print("---")
 
-    for row in L10NBinaryTable.create(org_table).rows:
-        print(row)
+    l10n_bin_table = L10NBinaryTable.create(org_table)
+    print(repr(l10n_bin_table))
+    print("---")
 
-    for row in L10NTextTable.create(org_table).rows:
-        print(row)
+    l10n_txt_table = L10NTextTable.create(org_table)
+    print(repr(l10n_txt_table))
+    print("---")
 
-    for row in CompactTable.create(org_table).rows:
-        print(row)
+    compact_table = CompactTable.create(org_table)
+    print(repr(compact_table))
+    print("---")
+
+    py_table = PyTable.create(compact_table)
+    print(repr(py_table))
+    print("---")
