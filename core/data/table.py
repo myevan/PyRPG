@@ -250,11 +250,11 @@ class L10NBinaryTable(Table):
     def gen_rows(cls, field_names, records):
         mos = [cls.RO_FIELD_NAME.match(field_name) for field_name in field_names]
 
-        key_head_text = 'key'.encode('utf8')
-        key_head_hash = adler32(key_head_text)
+        key_head_text = 'key'
+        key_head_hash = adler32(key_head_text.encode('utf8'))
         yield 'head', 'hash', 'text'
         yield 'int', 'int', 'str:utf8'
-        yield 0, 0, b'adler32'
+        yield 0, 0, 'adler32'
         yield 0, key_head_hash, key_head_text
         for val_idx, mo in enumerate(mos):
             if mo:
