@@ -84,35 +84,35 @@ class FieldType:
     # 179: hashlib.sha1
     # 403: hashlib.sha256
     expr_to_convert = {
-        'str:pk:hash64': lambda t, m, s: hash(t),
-        'str:pk:hash32': lambda t, m, s: hash(t),
-        'str:pk:adler32': lambda t, m, s: adler32(t.encode('utf8')),
-        'str:pk:crc32': lambda t, m, s: crc32(t.encode('utf8')),
-        'str:pk:md5': lambda t, m, s: md5(t.encode('utf8')).digest(),
-        'str:pk:sha1': lambda t, m, s: sha1(t.encode('utf8')).digest(),
-        'str:pk:sha256': lambda t, m, s: sha256(t.encode('utf8')).digest(),
-        'str:ascii:ignore': lambda t, m, s: t.encode('ascii', 'ignore'),
-        'str:ascii:replace': lambda t, m, s: t.encode('ascii', 'replace'),
+        'str:pk:hash64': lambda v, m, s: hash(v),
+        'str:pk:hash32': lambda v, m, s: hash(v),
+        'str:pk:adler32': lambda v, m, s: adler32(v.encode('utf8')),
+        'str:pk:crc32': lambda v, m, s: crc32(v.encode('utf8')),
+        'str:pk:md5': lambda v, m, s: md5(v.encode('utf8')).digest(),
+        'str:pk:sha1': lambda v, m, s: sha1(v.encode('utf8')).digest(),
+        'str:pk:sha256': lambda v, m, s: sha256(v.encode('utf8')).digest(),
+        'str:ascii:ignore': lambda v, m, s: v.encode('ascii', 'ignore'),
+        'str:ascii:replace': lambda v, m, s: v.encode('ascii', 'replace'),
     }
 
     py_type_opt_to_convert = {
-        (int, 'bin'): lambda t, m, s: int(t, 2),
-        (int, 'oct'): lambda t, m, s: int(t, 8),
-        (int, 'hex'): lambda t, m, s: int(t, 16),
-        (int, 'pk'): lambda t, m, s: int(t),
-        (int, 'fk'): lambda t, m, s: int(t),
-        (str, 'pk'): lambda t, m, s: adler32(t.encode('utf8')),
-        (str, 'fk'): lambda t, m, s: adler32(t.encode('utf8')),
+        (int, 'bin'): lambda v, m, s: int(v, 2),
+        (int, 'oct'): lambda v, m, s: int(v, 8),
+        (int, 'hex'): lambda v, m, s: int(v, 16),
+        (int, 'pk'): lambda v, m, s: int(v),
+        (int, 'fk'): lambda v, m, s: int(v),
+        (str, 'pk'): lambda v, m, s: adler32(v.encode('utf8')),
+        (str, 'fk'): lambda v, m, s: adler32(v.encode('utf8')),
     }
 
     py_type_to_convert = {
-        str: lambda t, m, s: t,
-        int: lambda t, m, s: int(t, int(m)) if m else int(t),
-        float: lambda t, m, s: float(t),
-        date: lambda t, m, s: datetime.strptime(t, "%Y-%m-%d").date(),
-        datetime: lambda t, m, s: datetime.strptime(t, "%Y-%m-%d %H:%M:%S"),
-        timedelta: lambda t, m, s: datetime.strptime(t, "%H:%M:%S") - DATETIME_STRPTIME_DEFAULT,
-        Enum: lambda t, m, s: FieldEnum.get(m, t),
+        str: lambda v, m, s: v,
+        int: lambda v, m, s: int(v, int(m)) if m else int(v),
+        float: lambda v, m, s: float(v),
+        date: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d").date(),
+        datetime: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d %H:%M:%S"),
+        timedelta: lambda v, m, s: datetime.strptime(v, "%H:%M:%S") - DATETIME_STRPTIME_DEFAULT,
+        Enum: lambda v, m, s: FieldEnum.get(m, v),
     }
 
     type_pair_to_dump = {
