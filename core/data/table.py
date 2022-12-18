@@ -269,7 +269,7 @@ class L10NTextTable(Table):
         head_texts = list(text for text in texts[0].values())
         yield head_texts
 
-        type_texts = ['int', 'int', 'str']
+        type_texts = ['int', 'str', 'str']
         yield type_texts
 
         head_hashes = list(texts[0].keys())
