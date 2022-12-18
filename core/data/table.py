@@ -20,6 +20,10 @@ from zlib import adler32, crc32
 
 from collections import defaultdict, OrderedDict
 
+ROW_IDX_HEADS = 0
+ROW_IDX_TYPES = 1
+ROW_IDX_BODYS = 2
+
 DATETIME_STRPTIME_DEFAULT = datetime.strptime("00:00:00", "%H:%M:%S")
 
 class FieldEnum:
@@ -178,12 +182,8 @@ class FieldType:
         return bytes(self._dump_value(value))
 
 class Table:
-    RO_L10N_FIELD_NAME = re.compile('\$(\w+)\[(\w+)\]')
-
     @classmethod
     def parse(cls, rows):
-        row_idx = 0
-
         field_names = rows[0]
         field_types = list(FieldType.gen_field_types(rows[1]))
 
@@ -192,11 +192,11 @@ class Table:
                 for col_idx, (field_type, text) in enumerate(zip(field_types, texts)):
                     yield field_type.parse_text(text)
 
-            for row_idx in range(2, len(rows)):
+            for row_idx in range(ROW_IDX_BODYS, len(rows)):
                 yield list(gen_values(rows[row_idx]))
 
         records = list(gen_records())
-        return cls(field_names, field_types, rows[row_idx:])
+        return cls(field_names, field_types, rows[ROW_IDX_BODYS:])
 
     def __init__(self, field_names, field_types, records):
         self._field_names = field_names
@@ -211,12 +211,31 @@ class Table:
                 for record in self._records]
         return '\n'.join([head_line, type_line] + body_lines)
 
-    def gen_l10n_bin_rows(self):
-        mos = [self.RO_L10N_FIELD_NAME.match(field_name) for field_name in self._field_names]
+    @property
+    def field_names(self): return self._field_names
+
+    @property
+    def field_types(self): return self._field_types
+
+    @property
+    def records(self): return self._records
+
+class L10NBinaryTable(Table):
+    RO_FIELD_NAME = re.compile('\$(\w+)\[(\w+)\]')
+
+    @classmethod
+    def create(cls, org_table):
+        rows = cls.gen_rows(org_table.field_names, org_table.records)
+        return cls(rows[ROW_IDX_HEADS], rows[ROW_IDX_TYPES], rows[ROW_IDX_BODYS:])
+
+    @classmethod
+    def gen_rows(cls, field_names, records):
+        mos = [cls.RO_FIELD_NAME.match(field_name) for field_name in field_names]
 
         key_head_text = 'key'.encode('utf8')
         key_head_hash = adler32(key_head_text)
         yield b'head', b'hash', b'text'
+        yield b'int', b'int', b'str:utf8'
         yield 0, 0, b'adler32'
         yield 0, key_head_hash, key_head_text
         for val_idx, mo in enumerate(mos):
@@ -225,23 +244,33 @@ class Table:
                 locale_head_text = mo.group(2).encode('utf8')
                 locale_head_hash = adler32(locale_head_text)
                 yield 0, locale_head_hash, locale_head_text
-                key_idx = self._field_names.index(field_name)
-                for record in self._records[2:]:
+                key_idx = field_names.index(field_name)
+                for record in records:
                     key_text = record[key_idx].encode('utf8')
                     locale_text = record[val_idx].encode('utf8')
                     key_text_hash = adler32(key_text)
                     yield key_head_hash, key_text_hash, key_text
                     yield locale_head_hash, key_text_hash, locale_text
 
-    def gen_l10n_text_rows(self):
-        head_hash_bins = list(self.gen_l10n_bin_rows())
+class L10NTextTable(Table):
+    @classmethod
+    def create(cls, org_table):
+        rows = cls.gen_rows(org_table.field_names, org_table.records)
+        return cls(rows[0], rows[1], rows[2:])
+
+    @classmethod
+    def gen_rows(cls, field_names, records):
+        rows = list(L10NBinaryTable.gen_rows(field_names, records))
 
         texts = defaultdict(OrderedDict)
-        for head, hash, bin in head_hash_bins[1:]:
+        for head, hash, bin in rows[ROW_IDX_BODYS:]:
             texts[head][hash] = bin.decode('utf8')
 
         head_texts = list(text for text in texts[0].values())
         yield head_texts
+
+        type_texts = ['int', 'int', 'str']
+        yield type_texts
 
         head_hashes = list(texts[0].keys())
         head_items = [texts[head_hash].items() for head_hash in head_hashes[1:]]
@@ -249,6 +278,8 @@ class Table:
             hash = pairs[0][0]
             assert(all(pair[0] == hash for pair in pairs))
             yield [hash] + [pair[1] for pair in pairs]
+
+    
 
 if __name__ == '__main__':
     import logging
@@ -310,17 +341,17 @@ if __name__ == '__main__':
     print(date_type.dump(datetime.now()))
     print(time_type.dump(timedelta(hours=1, minutes=2, seconds=3)))
 
-    table = Table.parse([
+    org_table = Table.parse([
         ['id', 'name', '$name[src]', 'desc', '$desc[src]'],
         ['int', 'str:fk:string.key', 'str:utf8', 'str:fk:string.key', 'str:utf8'],
         ['1', 'NAME_A', '가 이름', 'DESC_A', '가 설명'],
         ['2', 'NAME_B', '나 이름', 'DESC_B', '나 설명'],
     ])
-    print(repr(table))
+    print(repr(org_table))
 
-    for row in table.gen_l10n_bin_rows():
-        head, hash, bin = row
-        print(f"{head}:{hash}:{bin.decode('utf8')}")
+    for head, hash, bin in L10NBinaryTable.gen_rows(org_table.field_names, org_table.records):
+        row = [head, hash, bin.decode('utf8')] 
+        print(row)
 
-    for row in table.gen_l10n_text_rows():
+    for row in L10NTextTable.gen_rows(org_table.field_names, org_table.records):
         print(row)
