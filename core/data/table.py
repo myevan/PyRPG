@@ -209,21 +209,27 @@ class Table:
                 for record in self._records]
         return '\n'.join([head_line, type_line] + body_lines)
 
-    def gen_l10n_manifest_records(self):
+    def gen_l10n_rows(self):
         mos = [self.RO_L10N_FIELD_NAME.match(field_name) for field_name in self._field_names]
 
-        yield b'key_adler32', b'code_adler32', b'text' 
+        key_head_text = 'key'.encode('utf8')
+        key_head_hash = adler32(key_head_text)
+        yield b'head', b'hash', b'text'
+        yield 0, 0, b'adler32'
+        yield 0, key_head_hash, key_head_text
         for val_idx, mo in enumerate(mos):
             if mo:
                 field_name = mo.group(1)
-                code = mo.group(2)
-                code_hash = adler32(code.encode('utf8'))
+                locale_head_text = mo.group(2).encode('utf8')
+                locale_head_hash = adler32(locale_head_text)
+                yield 0, locale_head_hash, locale_head_text
                 key_idx = self._field_names.index(field_name)
                 for record in self._records[2:]:
-                    key = record[key_idx].encode('utf8')
-                    val = record[val_idx].encode('utf8')
-                    key_hash = adler32(key)
-                    yield code_hash, key_hash, val
+                    key_text = record[key_idx].encode('utf8')
+                    locale_text = record[val_idx].encode('utf8')
+                    key_text_hash = adler32(key_text)
+                    yield key_head_hash, key_text_hash, key_text
+                    yield locale_head_hash, key_text_hash, locale_text
 
 
 if __name__ == '__main__':
@@ -293,5 +299,22 @@ if __name__ == '__main__':
         ['2', 'NAME_B', '나 이름', 'DESC_B', '나 설명'],
     ])
     print(repr(table))
-    for code_hash, key_hash, text_utf8 in table.gen_l10n_manifest_records():
-        print(f"{code_hash}:{key_hash}:{text_utf8.decode('utf8')}")
+    l10n_rows = list(table.gen_l10n_rows())
+    for head, hash, bin in l10n_rows:
+        print(f"{head}:{hash}:{bin.decode('utf8')}")
+
+    from collections import defaultdict, OrderedDict
+
+    texts = defaultdict(OrderedDict)
+    for head, hash, bin in l10n_rows[1:]:
+        texts[head][hash] = bin.decode('utf8')
+
+    head_texts = list(text for text in texts[0].values())
+    print(head_texts)
+
+    head_hashes = list(texts[0].keys())
+    keys = texts[head_hashes[1]]
+    vals = texts[head_hashes[2]]
+    for item1, item2 in zip(keys.items(), vals.items()):
+        assert(item1[0] == item2[0]) 
+        print([item1[0], item1[1], item2[1]]) 
