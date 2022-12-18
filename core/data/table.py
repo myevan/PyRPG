@@ -18,6 +18,8 @@ from datetime import date, datetime, timedelta
 from hashlib import md5, sha1, sha256
 from zlib import adler32, crc32
 
+from collections import defaultdict, OrderedDict
+
 DATETIME_STRPTIME_DEFAULT = datetime.strptime("00:00:00", "%H:%M:%S")
 
 class FieldEnum:
@@ -209,7 +211,7 @@ class Table:
                 for record in self._records]
         return '\n'.join([head_line, type_line] + body_lines)
 
-    def gen_l10n_rows(self):
+    def gen_l10n_bin_rows(self):
         mos = [self.RO_L10N_FIELD_NAME.match(field_name) for field_name in self._field_names]
 
         key_head_text = 'key'.encode('utf8')
@@ -231,6 +233,22 @@ class Table:
                     yield key_head_hash, key_text_hash, key_text
                     yield locale_head_hash, key_text_hash, locale_text
 
+    def gen_l10n_text_rows(self):
+        head_hash_bins = list(self.gen_l10n_bin_rows())
+
+        texts = defaultdict(OrderedDict)
+        for head, hash, bin in head_hash_bins[1:]:
+            texts[head][hash] = bin.decode('utf8')
+
+        head_texts = list(text for text in texts[0].values())
+        yield head_texts
+
+        head_hashes = list(texts[0].keys())
+        head_items = [texts[head_hash].items() for head_hash in head_hashes[1:]]
+        for pairs in zip(*head_items):
+            hash = pairs[0][0]
+            assert(all(pair[0] == hash for pair in pairs))
+            yield [hash] + [pair[1] for pair in pairs]
 
 if __name__ == '__main__':
     import logging
@@ -299,22 +317,10 @@ if __name__ == '__main__':
         ['2', 'NAME_B', '나 이름', 'DESC_B', '나 설명'],
     ])
     print(repr(table))
-    l10n_rows = list(table.gen_l10n_rows())
-    for head, hash, bin in l10n_rows:
+
+    for row in table.gen_l10n_bin_rows():
+        head, hash, bin = row
         print(f"{head}:{hash}:{bin.decode('utf8')}")
 
-    from collections import defaultdict, OrderedDict
-
-    texts = defaultdict(OrderedDict)
-    for head, hash, bin in l10n_rows[1:]:
-        texts[head][hash] = bin.decode('utf8')
-
-    head_texts = list(text for text in texts[0].values())
-    print(head_texts)
-
-    head_hashes = list(texts[0].keys())
-    keys = texts[head_hashes[1]]
-    vals = texts[head_hashes[2]]
-    for item1, item2 in zip(keys.items(), vals.items()):
-        assert(item1[0] == item2[0]) 
-        print([item1[0], item1[1], item2[1]]) 
+    for row in table.gen_l10n_text_rows():
+        print(row)
