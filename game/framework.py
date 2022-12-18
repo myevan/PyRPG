@@ -1,6 +1,6 @@
 from core.foundation import Application, Uri
 
-from game.configs import GameConfig
+from game.configs import EnvironConfig, GameConfig
 from game.plugins.plugin_PyYAML import YamlConfigFileParser
 
 class GameApplication(Application):
@@ -8,7 +8,9 @@ class GameApplication(Application):
         Uri.add_scheme_path('cfg', config_dir_path)
 
     def _on_initializing(self):
-        GameConfig.add(YamlConfigFileParser(Uri.get_file_path('cfg', 'game.cfg.yaml')))
+        env_cfg = EnvironConfig.get()
+
+        GameConfig.add(YamlConfigFileParser(Uri.get_file_path('cfg', env_cfg.game_config_file_name)))
         GameConfig.load()
 
         game_cfg = GameConfig.get()
