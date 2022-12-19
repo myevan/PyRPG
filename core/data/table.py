@@ -1,4 +1,5 @@
 import re
+import json
 
 from ctypes import c_int8
 from ctypes import c_int16
@@ -38,47 +39,71 @@ class FieldEnum:
         get = cls._ns_get[ns]
         return get(key)
 
+class t_str(str): pass
+class t_md5(str): pass
+class t_sha1(str): pass
+class t_sha256(str): pass
+class t_json(str): pass
+class t_int(int): pass
+class t_uint(int): pass
+class t_alder32(int): pass
+class t_crc32(int): pass
+class t_real(float): pass
+class t_date(date): pass
+class t_datetime(datetime): pass
+class t_timedelta(timedelta): pass
+
 class FieldType:
     """
     data_type:main_attr:sub_attr
     """
     ro_field_type_expr = re.compile(r"(\w+)(:([^:]+)(:(.+))?)?")
 
-    expr_to_type_pair = {
-        'str:pk:hash64':    (int, c_uint64),
-        'str:pk:hash32':    (int, c_uint32),
-        'str:pk:adler32':   (int, c_uint32),
-        'str:pk:crc32':     (int, c_uint32),
-        'str:pk:md5':       (bytes, c_uint8 * 16),
-        'str:pk:sha1':      (bytes, c_uint8 * 20),
-        'str:pk:sha256':    (bytes, c_uint8 * 32),
+    data_type_name_to_type_pair = {
+        'json':     (t_json, bytes),
+        'str':      (t_str, bytes),
+        'md5':      (t_md5, bytes),
+        'sha1':     (t_sha1, bytes),
+        'sha256':   (t_sha256, bytes),
+        'int':      (t_int, c_int32),
+        'int8':     (t_int, c_int8),
+        'int16':    (t_int, c_int16),
+        'int32':    (t_int, c_int32),
+        'int64':    (t_int, c_int64),
+        'uint':     (t_uint, c_uint32),
+        'uint8':    (t_uint, c_uint8),
+        'uint16':   (t_uint, c_uint16),
+        'uint32':   (t_uint, c_uint32),
+        'uint64':   (t_uint, c_uint64),
+        'adler32':  (t_alder32, c_uint32),
+        'crc32':    (t_crc32, c_uint32),
+        'real':     (t_real, c_float),
+        'real32':   (t_real, c_float),
+        'real64':   (t_real, c_double),
+        'date':     (t_date, bytes),
+        'datetime': (t_datetime, bytes),
+        'span':     (t_timedelta, bytes),
+        'time':     (t_timedelta, bytes),
     }
 
-    data_type_name_to_type_pair = {
-        'real':     (float, c_float),
-        'real32':   (float, c_float),
-        'real64':   (float, c_double),
-        'enum':     (Enum, c_int32),
-        'int':      (int, c_int32),
-        'int8':     (int, c_int8),
-        'int16':    (int, c_int16),
-        'int32':    (int, c_int32),
-        'int64':    (int, c_int64),
-        'uint':     (int, c_uint32),
-        'uint8':    (int, c_uint8),
-        'uint16':   (int, c_uint16),
-        'uint32':   (int, c_uint32),
-        'uint64':   (int, c_uint64),
-        'adler32':  (int, c_uint32),
-        'crc32':    (int, c_uint32),
-        'str':      (str, bytes),
-        'md5':      (bytes, bytes),
-        'sha1':     (bytes, bytes),
-        'sha256':   (bytes, bytes),
-        'span':     (timedelta, bytes),
-        'time':     (timedelta, bytes),
-        'date':     (date, bytes),
-        'datetime': (datetime, bytes),
+    type_pair_to_convert = {
+        (t_int, 'bin'): lambda v, m, s: int(v, 2),
+        (t_int, 'oct'): lambda v, m, s: int(v, 8),
+        (t_int, 'hex'): lambda v, m, s: int(v, 16),
+        (t_int, 'pk'): lambda v, m, s: int(v),
+        (t_int, 'fk'): lambda v, m, s: int(v),
+        (t_int, 'enum'): lambda v, m, s: FieldEnum.get(s, v),
+        (t_str, 'key'): lambda v, m, s: v,
+    }
+
+    type_to_convert = {
+        t_json: lambda v, m, s: json.loads(v),
+        t_str: lambda v, m, s: str(v),
+        t_real: lambda v, m, s: float(v),
+        t_int: lambda v, m, s: int(v, int(m)) if m else int(v),
+        t_date: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d").date(),
+        t_datetime: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d %H:%M:%S"),
+        t_timedelta: lambda v, m, s: datetime.strptime(v, "%H:%M:%S") - DATETIME_STRPTIME_DEFAULT,
     }
 
     # https://www.sami-lehtinen.net/blog/python-hash-function-performance-comparison
@@ -88,48 +113,35 @@ class FieldType:
     # 180: hashlib.md5
     # 179: hashlib.sha1
     # 403: hashlib.sha256
-    data_type_name_to_convert = {
-        'hash64': lambda v, m, s: hash(v),
-        'hash32': lambda v, m, s: hash(v),
-        'adler32': lambda v, m, s: adler32(v.encode('utf8')),
-        'crc32': lambda v, m, s: crc32(v.encode('utf8')),
-        'md5': lambda v, m, s: md5(v.encode('utf8')).digest(),
-        'sha1': lambda v, m, s: sha1(v.encode('utf8')).digest(),
-        'sha256': lambda v, m, s: sha256(v.encode('utf8')).digest(),
-    }
-
-    py_type_opt_to_convert = {
-        (int, 'bin'): lambda v, m, s: int(v, 2),
-        (int, 'oct'): lambda v, m, s: int(v, 8),
-        (int, 'hex'): lambda v, m, s: int(v, 16),
-        (int, 'pk'): lambda v, m, s: int(v),
-        (int, 'fk'): lambda v, m, s: int(v),
-        (str, 'pk'): lambda v, m, s: str(v),
-        (str, 'fk'): lambda v, m, s: str(v),
-        (str, 'key'): lambda v, m, s: adler32(v.encode('utf8')),
-        (str, 'ascii'): lambda v, m, s: v.encode(m, s) if s else v.encode(m),
-    }
-
-    py_type_to_convert = {
-        str: lambda v, m, s: str(v),
-        int: lambda v, m, s: int(v, int(m)) if m else int(v),
-        float: lambda v, m, s: float(v),
-        date: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d").date(),
-        datetime: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d %H:%M:%S"),
-        timedelta: lambda v, m, s: datetime.strptime(v, "%H:%M:%S") - DATETIME_STRPTIME_DEFAULT,
-        Enum: lambda v, m, s: FieldEnum.get(m, v),
-    }
-
     type_pair_to_dump = {
-        (date, bytes): lambda v: str(v).encode('utf8'),
-        (datetime, bytes): lambda v: str(v).encode('utf8'),
-        (timedelta, bytes): lambda v: str(v).encode('utf8'),
+        (t_int, 'pk'): lambda v, m, s, c: bytes(c(v)),
+        (t_int, 'fk'): lambda v, m, s, c: bytes(c(v)),
+        (t_str, 'hash64'): lambda v, m, s, c: bytes(c_uint64(hash(v))),
+        (t_str, 'hash32'): lambda v, m, s, c: bytes(c_uint32(hash(v))),
+        (t_str, 'crc32'): lambda v, m, s, c: bytes(c_uint32(crc32(v.encode('utf8')))),
+        (t_str, 'adler32'): lambda v, m, s, c: bytes(c_uint32(adler32(v.encode('utf8')))),
+        (t_str, 'key'): lambda v, m, s, c: bytes(c_uint32(adler32(v.encode('utf8')))),
+        (t_str, 'pk'): lambda v, m, s, c: v.encode('utf8'),
+        (t_str, 'fk'): lambda v, m, s, c: v.encode('utf8'),
+        (t_str, 'utf8'): lambda v, m, s, c: v.encode('utf8', s if s else 'strict'),
+        (t_str, 'utf16'): lambda v, m, s, c: v.encode('utf16', s if s else 'strict'),
+        (t_str, 'ascii'): lambda v, m, s, c: v.encode('ascii', s if s else 'strict'),
+        (t_str, 'md5'): lambda v, m, s, c: md5(v.encode('utf8')).digest(),
+        (t_str, 'sha1'): lambda v, m, s, c: sha1(v.encode('utf8')).digest(),
+        (t_str, 'sha256'): lambda v, m, s, c: sha256(v.encode('utf8')).digest(),
+    }
+
+    type_to_dump = {
+        t_str: lambda v, m, s, c: v.encode(m, s if s else 'strict') if m else v.encode('utf8'),
+        t_date: lambda v, m, s, c: str(v).encode('utf8'),
+        t_datetime: lambda v, m, s, c: str(v).encode('utf8'),
+        t_timedelta: lambda v, m, s, c: str(v).encode('utf8'),
     }
 
     @classmethod
-    def add(cls, data_type_name, py_type, c_type, convert):
-        cls.data_type_name_to_convert[data_type_name] = convert
-        cls.data_type_name_to_type_pair[data_type_name] = (py_type, c_type)
+    def add(cls, data_type_name, t_type, c_type, convert):
+        cls.data_type_name_to_type_pair[data_type_name] = (t_type, c_type)
+        cls.type_to_convert[t_type] = convert
 
     @classmethod
     def parse(cls, expr: str):
@@ -138,26 +150,22 @@ class FieldType:
             data_type_name = mo.group(1)
             main_attr = mo.group(3)
             sub_attr = mo.group(5)
-            return cls(expr, data_type_name, main_attr, sub_attr)
+            return cls(data_type_name, main_attr, sub_attr, expr)
 
-    def __init__(self, expr, data_type_name, main_attr, sub_attr):
-        type_pair = self.expr_to_type_pair.get(expr, None)
-        if not type_pair:
-            type_pair = self.data_type_name_to_type_pair.get(data_type_name, None)
-            if not type_pair:
-                raise ValueError(f"UNKNOWN_DATA_TYPE={data_type_name} EXPR={expr}")
+    def __init__(self, data_type_name, main_attr, sub_attr, expr):
+        t_type, c_type = self.data_type_name_to_type_pair[data_type_name]
 
-        convert = self.data_type_name_to_convert.get(data_type_name)
-        if not convert:
-            py_type = type_pair[0]
-            convert = self.py_type_opt_to_convert.get((py_type, main_attr), None)
-            if not convert:
-                convert = self.py_type_to_convert[py_type]
+        if main_attr:
+            convert = self.type_pair_to_convert.get((t_type, main_attr))
+            dump = self.type_pair_to_dump.get((t_type, main_attr))
+            if convert == None and dump == None:
+                raise ValueError(f"UNKNONW_MAIN_ATTR: {main_attr}")
+        else:
+            convert = self.type_to_convert[t_type]
+            dump = self.type_to_dump.get(t_type, lambda v, m, s, c: bytes(c(v)))
 
-        c_type = type_pair[1]
-        dump = self.type_pair_to_dump.get(type_pair, c_type)
-
-        self._type_pair = type_pair
+        self._c_type = c_type
+        self._t_type = t_type
         self._sub_attr = sub_attr
         self._main_attr = main_attr
         self._data_type_name = data_type_name
@@ -172,7 +180,7 @@ class FieldType:
         return self._convert(val, self._main_attr, self._sub_attr)
 
     def dump(self, val):
-        return bytes(self._dump(val))
+        return self._dump(val, self._main_attr, self._sub_attr, self._c_type)
 
 class Table:
     class Error(Exception):
@@ -200,11 +208,11 @@ class Table:
         self._recs = recs
 
     def __repr__(self):
-        head_line = ', '.join(fld_name for fld_name in self._fld_names)
+        head_line = ', '.join(repr(fld_name) for fld_name in self._fld_names)
         type_line = ', '.join(repr(fld_type) for fld_type in self._fld_types)
         body_lines = [
-            ', '.join(repr(fld_value) for fld_value in record)
-                for record in self._recs]
+            ', '.join(fld_val.hex() if type(fld_val) is bytes else repr(fld_val) for fld_val in rec)
+                for rec in self._recs]
         return '\n'.join([head_line, type_line] + body_lines)
 
     @property
@@ -248,7 +256,7 @@ class PyTable(Table):
         return cls(fld_names, fld_types, recs)
 
 
-class L10NBinaryTable(Table):
+class L10NHashTable(Table):
     RO_FIELD_NAME = re.compile('\$(\w+)\[(\w+)\]')
 
     @classmethod
@@ -292,7 +300,7 @@ class L10NTextTable(Table):
 
     @classmethod
     def gen_rows(cls, field_names, records):
-        rows = list(L10NBinaryTable.gen_rows(field_names, records))
+        rows = list(L10NHashTable.gen_rows(field_names, records))
 
         texts = defaultdict(OrderedDict)
         for head, hash, text in rows[ROW_IDX_BODYS:]:
@@ -323,30 +331,44 @@ class CompactTable(Table):
         return cls(heads, types, recs)
 
     @classmethod
-    def gen_rows(cls, fld_names, fld_types, records):
+    def gen_rows(cls, fld_names, fld_types, recs):
         mos = [cls.RO_FIELD_NAME.match(name) for name in fld_names]
         idxs = [idx for idx, mo in enumerate(mos) if mo]
 
         yield [fld_names[idx] for idx in idxs]
         yield [fld_types[idx] for idx in idxs]
 
-        for record in records:
-            if not record: continue
-            if not record[0].strip(): continue # empty record
-            if record[0].startswith('#'): continue # comment record
+        for rec in recs:
+            if not rec: continue
+            if not rec[0].strip(): continue # empty
+            if rec[0].startswith('#'): continue # comment
 
-            row = [record[idx] for idx in idxs]
-            if not row[0].strip(): continue # empty row
-            if row[0].startswith('#'): continue # comment row
+            vals = [rec[idx] for idx in idxs]
+            if not vals[0].strip(): continue # empty
+            if vals[0].startswith('#'): continue # comment
 
-            yield row
+            yield vals
+
+class BinaryTable(Table):
+    @classmethod
+    def create(cls, org_table):
+        rowi = cls.gen_rows(org_table.field_names, org_table.field_types, org_table.records)
+        heads = next(rowi)
+        types = next(rowi)
+        recs = list(rowi)
+        return cls(heads, types, recs)
+
+    @classmethod
+    def gen_rows(cls, fld_names, fld_types, recs):
+        yield [fld_name.encode('utf8') for fld_name in fld_names]
+        yield [repr(fld_type).encode('utf8') for fld_type in fld_types]
+        for rec in recs:
+            yield [fld_type.dump(val) for fld_type, val in zip(fld_types, rec)]
+
 
 if __name__ == '__main__':
     import logging
     FieldEnum.add("logging", lambda key: getattr(logging, key))
-
-    import json
-    FieldType.add("json", str, bytes, convert=lambda t, m, s: json.loads(t))
 
     import yaml
     FieldType.add("yaml", str, bytes, convert=lambda t, m, s: yaml.safe_load(t))
@@ -359,7 +381,7 @@ if __name__ == '__main__':
     int16_pk_type = FieldType.parse("int16:pk")
     int_fk_type = FieldType.parse("int:fk:User.id")
     str_pk_type = FieldType.parse("str:pk")
-    str_pk_md5_type = FieldType.parse("md5")
+    str_md5_type = FieldType.parse("str:md5")
     str_type = FieldType.parse("str")
     str_ascii_type = FieldType.parse("str:ascii")
     str_ascii_replace_type = FieldType.parse("str:ascii:replace")
@@ -371,49 +393,47 @@ if __name__ == '__main__':
     json_type = FieldType.parse("json")
     yaml_type = FieldType.parse("yaml")
     real_type = FieldType.parse("real")
-    enum_type = FieldType.parse("enum:logging")
+    enum_type = FieldType.parse("int:enum:logging")
 
     print(int_type.convert("10"))
     print(int_bin_type.convert("10"))
     print(int_oct_type.convert("10"))
     print(int_hex_type.convert("10"))
-    print(int_pk_type.convert("100"))
-    print(int16_pk_type.convert("30000"))
-    print(int_fk_type.convert("10000000000"))
-    print(str_pk_type.convert("Hello:PK"))
-    print(str_pk_md5_type.convert("Hello:PK:MD5"))
-    print(str_type.convert("Hello"))
-    print(str_ascii_type.convert("Hello:ASCII"))
-    print(str_ascii_replace_type.convert("Hello:ASCII:REPLACE:안녕하세요"))
-    print(str_utf8_type.convert("안녕하세요"))
-    print(str_utf16_type.convert("안녕하세요"))
-    print(date_type.convert("2022-12-18"))
-    print(time_type.convert("11:50:07"))
-    print(span_type.convert("01:20:30"))
-    print(json_type.convert("[1, 2, 3]"))
-    print(yaml_type.convert("{a: 1, b: 2}"))
     print(real_type.convert("1.23"))
     print(enum_type.convert("ERROR"))
+    print(str_type.convert("Hello"))
+    print(repr(date_type.convert("2022-12-18")))
+    print(repr(time_type.convert("11:50:07")))
+    print(repr(span_type.convert("01:20:30")))
+    print(repr(json_type.convert("[1, 2, 3]")))
+    print(repr(yaml_type.convert("{a: 1, b: 2}")))
 
     print(int_type.dump(10).hex())
+    print(int16_pk_type.dump(30000).hex())
     print(real_type.dump(1.23).hex())
-    print(str_type.dump(b"TEST"))
+    print(str_type.dump("TEST"))
+    print(str_pk_type.dump("PK"))
+    print(str_ascii_type.dump("Hello:ASCII"))
+    print(str_ascii_replace_type.dump("Hello:ASCII:REPLACE:안녕하세요"))
+    print(str_utf8_type.dump("안녕하세요").hex())
+    print(str_utf16_type.dump("안녕하세요").hex())
+    print(str_md5_type.dump("Hello:MD5"))
     print(date_type.dump(datetime.now()))
     print(time_type.dump(timedelta(hours=1, minutes=2, seconds=3)))
 
     org_rows = [
-        ["id",      "name",     "$name[src]",   "desc",     "$desc[src]"   "ave_score",     "#comment"],
-        ["int:pk",  "str:key",  "str:utf8",     "str:key",  "str:utf8",    "real",          "str:utf8"],
-        ["1",       "NAME_A",   "가 이름",      "DESC_A",   "가 설명",      7.2,            "주석1"],
-        ["2",       "NAME_B",   "나 이름",      "DESC_B",   "나 설명",      8.5,            "주석2"],
+        ["id",      "name",     "$name[src]",   "desc",     "$desc[src]",  "ave_score", "duration", "#comment"],
+        ["int:pk",  "str:key",  "str",          "str:key",  "str",         "real",      "span",     "str"],
+        ["1",       "NAME_A",   "가 이름",      "DESC_A",   "가 설명",      7.2,        "00:01:01", "주석1"],
+        ["2",       "NAME_B",   "나 이름",      "DESC_B",   "나 설명",      8.5,        "01:00:00", "주석2"],
     ]
 
     org_table = Table.create(org_rows)
     print(repr(org_table))
     print("---")
 
-    l10n_bin_table = L10NBinaryTable.create(org_table)
-    print(repr(l10n_bin_table))
+    l10n_hash_table = L10NHashTable.create(org_table)
+    print(repr(l10n_hash_table))
     print("---")
 
     l10n_txt_table = L10NTextTable.create(org_table)
@@ -426,4 +446,8 @@ if __name__ == '__main__':
 
     py_table = PyTable.create(compact_table)
     print(repr(py_table))
+    print("---")
+
+    bin_table = BinaryTable.create(py_table)
+    print(repr(bin_table))
     print("---")
