@@ -69,7 +69,12 @@ class FieldType:
         'uint16':   (int, c_uint16),
         'uint32':   (int, c_uint32),
         'uint64':   (int, c_uint64),
+        'adler32':  (int, c_uint32),
+        'crc32':    (int, c_uint32),
         'str':      (str, bytes),
+        'md5':      (bytes, bytes),
+        'sha1':     (bytes, bytes),
+        'sha256':   (bytes, bytes),
         'span':     (timedelta, bytes),
         'time':     (timedelta, bytes),
         'date':     (date, bytes),
@@ -83,16 +88,14 @@ class FieldType:
     # 180: hashlib.md5
     # 179: hashlib.sha1
     # 403: hashlib.sha256
-    expr_to_convert = {
-        'str:pk:hash64': lambda v, m, s: hash(v),
-        'str:pk:hash32': lambda v, m, s: hash(v),
-        'str:pk:adler32': lambda v, m, s: adler32(v.encode('utf8')),
-        'str:pk:crc32': lambda v, m, s: crc32(v.encode('utf8')),
-        'str:pk:md5': lambda v, m, s: md5(v.encode('utf8')).digest(),
-        'str:pk:sha1': lambda v, m, s: sha1(v.encode('utf8')).digest(),
-        'str:pk:sha256': lambda v, m, s: sha256(v.encode('utf8')).digest(),
-        'str:ascii:ignore': lambda v, m, s: v.encode('ascii', 'ignore'),
-        'str:ascii:replace': lambda v, m, s: v.encode('ascii', 'replace'),
+    data_type_name_to_convert = {
+        'hash64': lambda v, m, s: hash(v),
+        'hash32': lambda v, m, s: hash(v),
+        'adler32': lambda v, m, s: adler32(v.encode('utf8')),
+        'crc32': lambda v, m, s: crc32(v.encode('utf8')),
+        'md5': lambda v, m, s: md5(v.encode('utf8')).digest(),
+        'sha1': lambda v, m, s: sha1(v.encode('utf8')).digest(),
+        'sha256': lambda v, m, s: sha256(v.encode('utf8')).digest(),
     }
 
     py_type_opt_to_convert = {
@@ -101,12 +104,14 @@ class FieldType:
         (int, 'hex'): lambda v, m, s: int(v, 16),
         (int, 'pk'): lambda v, m, s: int(v),
         (int, 'fk'): lambda v, m, s: int(v),
-        (str, 'pk'): lambda v, m, s: adler32(v.encode('utf8')),
-        (str, 'fk'): lambda v, m, s: adler32(v.encode('utf8')),
+        (str, 'pk'): lambda v, m, s: str(v),
+        (str, 'fk'): lambda v, m, s: str(v),
+        (str, 'key'): lambda v, m, s: adler32(v.encode('utf8')),
+        (str, 'ascii'): lambda v, m, s: v.encode(m, s) if s else v.encode(m),
     }
 
     py_type_to_convert = {
-        str: lambda v, m, s: v,
+        str: lambda v, m, s: str(v),
         int: lambda v, m, s: int(v, int(m)) if m else int(v),
         float: lambda v, m, s: float(v),
         date: lambda v, m, s: datetime.strptime(v, "%Y-%m-%d").date(),
@@ -123,7 +128,7 @@ class FieldType:
 
     @classmethod
     def add(cls, data_type_name, py_type, c_type, convert):
-        cls.expr_to_convert[data_type_name] = convert
+        cls.data_type_name_to_convert[data_type_name] = convert
         cls.data_type_name_to_type_pair[data_type_name] = (py_type, c_type)
 
     @classmethod
@@ -142,7 +147,7 @@ class FieldType:
             if not type_pair:
                 raise ValueError(f"UNKNOWN_DATA_TYPE={data_type_name} EXPR={expr}")
 
-        convert = self.expr_to_convert.get(expr)
+        convert = self.data_type_name_to_convert.get(data_type_name)
         if not convert:
             py_type = type_pair[0]
             convert = self.py_type_opt_to_convert.get((py_type, main_attr), None)
@@ -354,7 +359,7 @@ if __name__ == '__main__':
     int16_pk_type = FieldType.parse("int16:pk")
     int_fk_type = FieldType.parse("int:fk:User.id")
     str_pk_type = FieldType.parse("str:pk")
-    str_pk_md5_type = FieldType.parse("str:pk:md5")
+    str_pk_md5_type = FieldType.parse("md5")
     str_type = FieldType.parse("str")
     str_ascii_type = FieldType.parse("str:ascii")
     str_ascii_replace_type = FieldType.parse("str:ascii:replace")
@@ -398,7 +403,7 @@ if __name__ == '__main__':
 
     org_rows = [
         ["id",      "name",     "$name[src]",   "desc",     "$desc[src]"   "ave_score",     "#comment"],
-        ["int:pk",  "str",      "str:utf8",     "str",      "str:utf8",    "real",          "str:utf8"],
+        ["int:pk",  "str:key",  "str:utf8",     "str:key",  "str:utf8",    "real",          "str:utf8"],
         ["1",       "NAME_A",   "가 이름",      "DESC_A",   "가 설명",      7.2,            "주석1"],
         ["2",       "NAME_B",   "나 이름",      "DESC_B",   "나 설명",      8.5,            "주석2"],
     ]
